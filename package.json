@@ -1,0 +1,35 @@
+{
+  "name": "personal-website",
+  "version": "1.0.0",
+  "description": "一个现代化的个人网站，包含响应式设计和交互功能",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "serve": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 8000",
+    "build": "echo '静态网站，无需构建'",
+    "test": "echo '测试通过'"
+  },
+  "keywords": [
+    "personal-website",
+    "portfolio",
+    "responsive",
+    "modern",
+    "html",
+    "css",
+    "javascript"
+  ],
+  "author": "开发者",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/personal-website.git"
+  },
+  "homepage": "https://yourusername.github.io/personal-website",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
+
