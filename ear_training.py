@@ -82,10 +82,10 @@ def generate_sequence(length=6):
     note_pool = NOTE_NAMES + ['C5']
     return [random.choice(note_pool) for _ in range(length)]
 
-def format_answer(notes):
-    """格式化答案（去除空格，转为大写，支持C5）"""
+def parse_notes(notes):
+    """解析答案字符串，返回音符列表（支持C5）"""
     if not notes:
-        return ''
+        return []
     
     # 如果notes是列表，先转换为字符串
     if isinstance(notes, list):
@@ -105,7 +105,12 @@ def format_answer(notes):
         else:
             # 跳过无效字符
             i += 1
-    return ''.join(result)
+    return result
+
+def format_answer(notes):
+    """格式化答案（去除空格，转为大写，支持C5）- 返回字符串"""
+    note_list = parse_notes(notes)
+    return ''.join(note_list)
 
 def get_user_input(allow_replay=False, sequence=None):
     """获取用户输入（使用piano.py的按键映射，支持试音和重放）"""
@@ -274,16 +279,19 @@ def main():
                 break
             
             # 循环直到答对为止
-            correct_answer_clean = format_answer(correct_answer)
+            correct_answer_notes = parse_notes(correct_answer)  # 解析正确答案为音符列表
             attempt_count = 0
             should_exit = False  # 用于标记是否要退出程序
             
             while True:
                 attempt_count += 1
                 
-                # 检查答案（取最后6个音符进行比较）
-                user_answer_formatted = format_answer(user_answer)
-                user_answer_clean = user_answer_formatted[-6:] if len(user_answer_formatted) > 6 else user_answer_formatted  # 取最后6个
+                # 检查答案（按音符数量取最后6个音符进行比较）
+                user_answer_notes = parse_notes(user_answer)  # 解析用户答案为音符列表
+                # 取最后6个音符（按音符数量，不是字符数量）
+                user_answer_clean_notes = user_answer_notes[-6:] if len(user_answer_notes) > 6 else user_answer_notes
+                user_answer_clean = ''.join(user_answer_clean_notes)  # 转换为字符串用于比较
+                correct_answer_clean = ''.join(correct_answer_notes)  # 转换为字符串用于比较
                 
                 if user_answer_clean == correct_answer_clean:
                     correct_count += 1
