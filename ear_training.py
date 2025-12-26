@@ -273,60 +273,60 @@ def main():
                 print("\n退出程序")
                 break
             
-            # 检查答案（取最后6个音符进行比较）
-            user_answer_formatted = format_answer(user_answer)
-            user_answer_clean = user_answer_formatted[-6:] if len(user_answer_formatted) > 6 else user_answer_formatted  # 取最后6个
+            # 循环直到答对为止
             correct_answer_clean = format_answer(correct_answer)
+            attempt_count = 0
+            should_exit = False  # 用于标记是否要退出程序
             
-            if user_answer_clean == correct_answer_clean:
-                correct_count += 1
-                accuracy = (correct_count / total_count) * 100
-                print(f"\n{'='*60}")
-                print(f"🎉 正确！")
-                print(f"正确答案: {correct_answer}")
-                print(f"📊 当前正确率: {correct_count}/{total_count} ({accuracy:.1f}%)")
-                print(f"{'='*60}")
-                time.sleep(0.5)
-            else:
-                accuracy = (correct_count / total_count) * 100
-                print(f"\n{'='*60}")
-                print(f"❌ 错误")
-                print(f"你的答案（最后6个）: {user_answer_clean if user_answer_clean else '(空)'}")
-                print(f"完整输入: {user_answer if user_answer else '(空)'}")
-                print(f"正确答案: {correct_answer}")
-                print(f"📊 当前正确率: {correct_count}/{total_count} ({accuracy:.1f}%)")
-                print(f"{'='*60}")
-                print("\n🔄 再试一次...")
-                time.sleep(0.5)
+            while True:
+                attempt_count += 1
                 
-                # 重新播放
-                print("\n🎵 重新播放...")
-                play_note_sequence(sequence, duration=0.6, pause=0.15)
-                print("✓ 播放完成！")
-                time.sleep(0.2)
-                
-                # 再次获取输入（允许重放）
-                user_answer = get_user_input(allow_replay=True, sequence=sequence)
-                if user_answer is None:
-                    break
-                
+                # 检查答案（取最后6个音符进行比较）
                 user_answer_formatted = format_answer(user_answer)
                 user_answer_clean = user_answer_formatted[-6:] if len(user_answer_formatted) > 6 else user_answer_formatted  # 取最后6个
+                
                 if user_answer_clean == correct_answer_clean:
                     correct_count += 1
                     accuracy = (correct_count / total_count) * 100
                     print(f"\n{'='*60}")
                     print(f"🎉 正确！")
+                    if attempt_count > 1:
+                        print(f"（经过 {attempt_count} 次尝试）")
                     print(f"正确答案: {correct_answer}")
                     print(f"📊 当前正确率: {correct_count}/{total_count} ({accuracy:.1f}%)")
                     print(f"{'='*60}")
                     time.sleep(0.5)
+                    break  # 答对了，退出循环进入下一题
                 else:
+                    accuracy = (correct_count / total_count) * 100
                     print(f"\n{'='*60}")
-                    print(f"❌ 仍然错误")
+                    print(f"❌ 错误（第 {attempt_count} 次尝试）")
+                    print(f"你的答案（最后6个）: {user_answer_clean if user_answer_clean else '(空)'}")
+                    print(f"完整输入: {user_answer if user_answer else '(空)'}")
                     print(f"正确答案: {correct_answer}")
+                    print(f"📊 当前正确率: {correct_count}/{total_count} ({accuracy:.1f}%)")
                     print(f"{'='*60}")
-                    time.sleep(0.8)
+                    print("\n🔄 再试一次...")
+                    time.sleep(0.5)
+                    
+                    # 重新播放（包含基准音）
+                    print("\n🎵 重新播放基准音C...")
+                    time.sleep(0.1)
+                    print("🎵 重新播放音符序列...")
+                    play_note_sequence(sequence, duration=0.6, pause=0.15, play_reference=True)
+                    print("✓ 播放完成！")
+                    time.sleep(0.2)
+                    
+                    # 再次获取输入（允许重放）
+                    user_answer = get_user_input(allow_replay=True, sequence=sequence)
+                    if user_answer is None:  # ESC退出
+                        should_exit = True
+                        break
+            
+            # 如果用户按ESC退出，退出外层循环
+            if should_exit:
+                print("\n退出程序")
+                break
     
     except KeyboardInterrupt:
         print("\n\n程序已中断")
