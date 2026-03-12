@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 音高寻找练耳程序 v4 - QWERTY 自然音阶 + 变调
-键盘按 qwertyuiopasdfghjklzxcvb 顺序对应自然音阶，a 为中音 do，n 下一批。
+键位：q～i 低八度八个音(do～do)，o p 不发音，a～k 中高八度(a=中音do k=高音do)，l 不发音，z x c v b=高音 do re mi fa sol，n 下一批。
 支持 +/- 整体升降八度、Shift 临时升八度。
 """
 
@@ -29,15 +29,21 @@ except SystemExit:
 # ============================================================================
 # 常量配置
 # ============================================================================
-# 键盘顺序（QWERTY 一排排）：对应自然音阶 do re mi fa sol la si do ...
+# 键盘：q～i 低八度八个音(do～do)，o p 不发音，a～k 中高八度(a=中音do k=高音do)，l 不发音，z x c v b=高音 do re mi fa sol
 KEY_ORDER = list('qwertyuiopasdfghjklzxcvb')
-# a 键为中音 do（C4）
-A_INDEX = KEY_ORDER.index('a')
-# 自然大调各音相对 do 的半音数
-DIATONIC_SEMITONES = [0, 2, 4, 5, 7, 9, 11]  # C D E F G A B
+# 低八度八个音（C3～C4），对应 q w e r t y u i
+LOW_OCTAVE_HZ = (130.81, 146.83, 164.81, 174.61, 196.00, 220.00, 246.94, 261.63)  # C3 D3 E3 F3 G3 A3 B3 C4
+# 中高八度八个音（C4～C5），对应 a s d f g h j k
+MIDDLE_OCTAVE_HZ = (261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25)  # C4 D4 E4 F4 G4 A4 B4 C5
+# 不发音的键
+SILENT_KEYS = ('o', 'p', 'l')
+# 高音 do re mi fa sol（C5～G5），对应 z x c v b
+HIGH_DO_RE_MI_FA_SOL_HZ = (523.25, 587.33, 659.25, 698.46, 783.99)
 
-# 中音 do 频率（C4）
+# 中音 do 频率（C4），供 note_name_to_freq、出题范围等使用
 MIDDLE_DO_HZ = 261.63
+# 自然大调各音相对 do 的半音数（出题用）
+DIATONIC_SEMITONES = [0, 2, 4, 5, 7, 9, 11]  # C D E F G A B
 
 # 测试音范围（音名，只在此范围内出题；可改为如 "G3"、"D5"）
 TEST_NOTE_LOW = "G3"
@@ -95,18 +101,19 @@ OCTAVE_OFFSET_MAX = 2
 
 
 def build_diatonic_key_map():
-    """按 QWERTY 顺序、a=中音 do 构建 键 -> 基础频率（未加八度偏移）"""
+    """q～i 低八度八个音，o p l 不发音，a～k 中高八度，z x c v b 高音 do re mi fa sol"""
     key_to_freq = {}
-    for i, key in enumerate(KEY_ORDER):
-        linear = i - A_INDEX
-        oct_rel = linear // 7
-        degree = linear % 7
-        if linear < 0 and degree != 0:
-            oct_rel -= 1
-            degree = (degree - 7) % 7
-        sem = DIATONIC_SEMITONES[degree]
-        freq = MIDDLE_DO_HZ * (2 ** (oct_rel + sem / 12.0))
-        key_to_freq[key] = freq
+    low_keys = 'qwertyui'
+    middle_keys = 'asdfghjk'
+    high_keys = ('z', 'x', 'c', 'v', 'b')
+    for key in low_keys:
+        key_to_freq[key] = LOW_OCTAVE_HZ[low_keys.index(key)]
+    for key in SILENT_KEYS:
+        pass  # 不加入
+    for key in middle_keys:
+        key_to_freq[key] = MIDDLE_OCTAVE_HZ[middle_keys.index(key)]
+    for key in high_keys:
+        key_to_freq[key] = HIGH_DO_RE_MI_FA_SOL_HZ[high_keys.index(key)]
     return key_to_freq
 
 
@@ -268,7 +275,7 @@ def main():
         TEST_NOTE_LOW, TEST_NOTE_HIGH, TEST_FREQ_MIN, TEST_FREQ_MAX))
     print("  • 一批内最大跨度: {} 度".format(MAX_DEGREE_SPAN))
     print("\n⌨️  按键:")
-    print("  • 试音: q w e r t y u i o p a s d f g h j k l z x c v b")
+    print("  • 试音: q～i 低八度八个音，o p 不发音，a～k 中高八度(a=中音do k=高音do)，l 不发音，z x c v b=高音 do re mi fa sol")
     print("  • + / -: 整体升八度 / 降八度")
     print("  • 按住 Shift + 试音键: 临时升八度")
     print("  • 空格: 暂停/继续")

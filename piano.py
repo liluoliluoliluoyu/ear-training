@@ -449,17 +449,16 @@ def init_soundfont(soundfont_path=None):
         SOUNDFONT_PATH = font_path
         fs.program_select(0, sfid, 0, 0)  # 默认使用第一个程序
         
-        # 配置更真实的音色效果（使用MIDI控制器）
+        # 配置音色效果（混响/合唱偏小，减少低音延音、高音更自然）
         try:
-            # 使用MIDI控制器设置效果
-            # CC91 = Reverb Send Level (0-127)
-            fs.cc(0, 91, 40)  # 添加混响
-            # CC93 = Chorus Send Level (0-127)  
-            fs.cc(0, 93, 30)  # 添加合唱
+            # CC91 = Reverb Send Level (0-127)，偏小减少低音尾音
+            fs.cc(0, 91, 16)
+            # CC93 = Chorus Send Level (0-127)
+            fs.cc(0, 93, 8)
             # CC7 = Volume (0-127)
-            fs.cc(0, 7, 100)  # 设置音量
+            fs.cc(0, 7, 100)
             # CC10 = Pan (0-127, 64=center)
-            fs.cc(0, 10, 64)  # 居中
+            fs.cc(0, 10, 64)
         except:
             # 如果某些设置不支持，忽略错误
             pass
@@ -506,6 +505,11 @@ def start_note(key, frequency, instrument_key='1'):
                 '5': 100, '6': 90, '7': 85, '8': 95,
             }
             velocity = velocity_map.get(instrument_key, 90)
+            # 按音高微调力度：低音略减减少延音感，高音略减更自然
+            if midi_note < 52:
+                velocity = max(40, int(velocity * 0.88))
+            elif midi_note > 84:
+                velocity = max(50, int(velocity * 0.9))
             
             # 设置乐器
             fs.program_change(0, midi_program)
@@ -513,8 +517,8 @@ def start_note(key, frequency, instrument_key='1'):
             # 设置效果（只在第一次）
             try:
                 if not hasattr(start_note, '_effects_set'):
-                    fs.cc(0, 91, 40)  # Reverb
-                    fs.cc(0, 93, 30)  # Chorus
+                    fs.cc(0, 91, 16)  # Reverb 偏小
+                    fs.cc(0, 93, 8)   # Chorus 偏小
                     fs.cc(0, 7, 100)  # Volume
                     start_note._effects_set = True
             except:
