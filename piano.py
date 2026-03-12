@@ -6,6 +6,8 @@
 按键映射：
   音符键: A S D F G H J K (白键) | W E T Y U (黑键) | Q Z X C V B N M , . / ; ' (高音)
   切换乐器: 1-钢琴 2-吉他 3-小提琴 4-长笛 5-萨克斯 6-电子合成器 7-风琴 8-小号
+  + / -: 整体升八度 / 降八度；按住 Shift 再按音符键为临时 +1 八度
+  = 然后 1-7: 变调（1=C 2=D 3=E 4=F 5=G 6=A 7=B）
 按 ESC 或 Ctrl+C 退出
 """
 
@@ -50,6 +52,16 @@ fs = None
 # 正在播放的音符跟踪（用于同时播放和长按）
 active_notes = {}  # {key: {'midi_note': int, 'thread': Thread, 'stop_event': Event}}
 active_notes_lock = threading.Lock()
+
+# 八度偏移：+1 整体升八度，-1 整体降八度
+octave_offset = 0
+OCTAVE_OFFSET_MIN = -2
+OCTAVE_OFFSET_MAX = 2
+
+# 变调：1=C 2=D 3=E 4=F 5=G 6=A 7=B，数字对应半音偏移（相对 C）
+KEY_SELECT_SEMITONES = {'1': 0, '2': 2, '3': 4, '4': 5, '5': 7, '6': 9, '7': 11}
+KEY_SELECT_NAMES = {'1': 'C', '2': 'D', '3': 'E', '4': 'F', '5': 'G', '6': 'A', '7': 'B'}
+SEMITONES_TO_KEY_NAME = {0: 'C', 2: 'D', 4: 'E', 5: 'F', 7: 'G', 9: 'A', 11: 'B'}
 
 # 钢琴键位映射（按键 -> 音符频率）
 # 使用科学音高记号法，A4 = 440Hz
@@ -594,7 +606,7 @@ def play_tone(frequency, duration=NOTE_DURATION, instrument_key='1'):
 
 def main():
     """主程序"""
-    global current_instrument
+    global current_instrument, octave_offset
     
     print("=" * 60)
     print("多乐器键盘程序")
@@ -607,7 +619,10 @@ def main():
     for key, inst in INSTRUMENTS.items():
         marker = " <--" if inst['name'] == current_instrument else ""
         print(f"  {key} - {inst['name']}{marker}")
-    print("\n按 ESC 或 Ctrl+C 退出")
+    print("\n+/- 键: 整体升八度 / 降八度")
+    print("按住 Shift + 音符键: 临时升八度")
+    print("= 然后 1-7: 变调 (1=C 2=D 3=E 4=F 5=G 6=A 7=B)")
+    print("按 ESC 或 Ctrl+C 退出")
     print("=" * 60)
     
     # 初始化音频
@@ -648,27 +663,63 @@ def main():
         print("3. 下载 SoundFont 文件（见上方说明）")
         print("="*60)
     
-    print(f"\n当前乐器: {current_instrument}")
-    print("就绪，开始演奏...\n")
-    
     current_instrument_key = '1'
+    transpose_semitones = 0   # 默认 C 调
+    waiting_for_key_select = False
+    
+    print(f"\n当前乐器: {current_instrument}")
+    print(f"当前八度: {'+' if octave_offset >= 0 else ''}{octave_offset} (+/- 可调节)")
+    print(f"当前调: {SEMITONES_TO_KEY_NAME.get(transpose_semitones, 'C')}调 (= 后按 1-7 可改)")
+    print("就绪，开始演奏...\n")
     
     try:
         if sys.platform == 'win32':
             import msvcrt
+            import ctypes
+            VK_SHIFT = 0x10
             
             pressed_keys = {}  # {key: last_press_time}
             key_repeat_threshold = 0.15  # 150ms内重复按键认为是长按
             
             while True:
                 if msvcrt.kbhit():
-                    key = msvcrt.getch().decode('utf-8').lower()
+                    key_raw = msvcrt.getch().decode('utf-8')
+                    shift_held = (ctypes.windll.user32.GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0
+                    key = key_raw.lower()
                     current_time_win = time.time()
                     
                     if key == '\x1b':  # ESC
-                        for k in list(pressed_keys.keys()):
-                            stop_note(k)
-                        break
+                        if waiting_for_key_select:
+                            waiting_for_key_select = False
+                        else:
+                            for k in list(pressed_keys.keys()):
+                                stop_note(k)
+                            break
+                    
+                    # = 键：进入变调选择，再按 1-7 选调
+                    if key == '=':
+                        waiting_for_key_select = True
+                        print("\n请按 1-7 选择调: 1=C 2=D 3=E 4=F 5=G 6=A 7=B")
+                        continue
+                    if waiting_for_key_select:
+                        if key in KEY_SELECT_SEMITONES:
+                            transpose_semitones = KEY_SELECT_SEMITONES[key]
+                            print(f"\n变调: {KEY_SELECT_NAMES[key]}调")
+                            waiting_for_key_select = False
+                        else:
+                            waiting_for_key_select = False
+                        continue
+                    
+                    # + 键：整体升八度
+                    if key == '+':
+                        octave_offset = min(octave_offset + 1, OCTAVE_OFFSET_MAX)
+                        print(f"\n八度: {'+' if octave_offset >= 0 else ''}{octave_offset}")
+                        continue
+                    # - 键：整体降八度
+                    if key == '-' or key == '_':
+                        octave_offset = max(octave_offset - 1, OCTAVE_OFFSET_MIN)
+                        print(f"\n八度: {'+' if octave_offset >= 0 else ''}{octave_offset}")
+                        continue
                     
                     # 切换乐器
                     if key in INSTRUMENTS:
@@ -695,8 +746,9 @@ def main():
                                 # 间隔较长，认为是新的按键，停止并重新开始
                                 stop_note(key)
                         
-                        # 开始播放新音符
-                        frequency = KEY_MAP[key]
+                        # 开始播放新音符（八度 + 变调 + Shift 临时升八度）
+                        effective_octave = octave_offset + (1 if shift_held else 0)
+                        frequency = KEY_MAP[key] * (2 ** (effective_octave + transpose_semitones / 12.0))
                         start_note(key, frequency, current_instrument_key)
                         pressed_keys[key] = current_time_win
                     else:
@@ -751,17 +803,47 @@ def main():
                             
                             # 检查是否有输入（非阻塞）
                             if select.select([sys.stdin], [], [], 0.01)[0]:
-                                key = sys.stdin.read(1).lower()
+                                key_raw = sys.stdin.read(1)
+                                # 大写字母表示按住 Shift，临时 +1 八度
+                                shift_held = key_raw != key_raw.lower() and key_raw.lower() in KEY_MAP
+                                key = key_raw.lower()
                                 
                                 if ord(key) == 27:  # ESC
-                                    # 停止所有音符
-                                    for k in list(pressed_keys.keys()):
-                                        stop_note(k)
-                                    break
+                                    if waiting_for_key_select:
+                                        waiting_for_key_select = False
+                                    else:
+                                        for k in list(pressed_keys.keys()):
+                                            stop_note(k)
+                                        break
                                 elif ord(key) == 3:  # Ctrl+C
                                     for k in list(pressed_keys.keys()):
                                         stop_note(k)
                                     break
+                                
+                                # = 键：进入变调选择，再按 1-7 选调
+                                if key == '=':
+                                    waiting_for_key_select = True
+                                    print("\n请按 1-7 选择调: 1=C 2=D 3=E 4=F 5=G 6=A 7=B")
+                                    continue
+                                if waiting_for_key_select:
+                                    if key in KEY_SELECT_SEMITONES:
+                                        transpose_semitones = KEY_SELECT_SEMITONES[key]
+                                        print(f"\n变调: {KEY_SELECT_NAMES[key]}调")
+                                        waiting_for_key_select = False
+                                    else:
+                                        waiting_for_key_select = False
+                                    continue
+                                
+                                # + 键：整体升八度
+                                if key == '+':
+                                    octave_offset = min(octave_offset + 1, OCTAVE_OFFSET_MAX)
+                                    print(f"\n八度: {'+' if octave_offset >= 0 else ''}{octave_offset}")
+                                    continue
+                                # - 键：整体降八度
+                                if key == '-' or key == '_':
+                                    octave_offset = max(octave_offset - 1, OCTAVE_OFFSET_MIN)
+                                    print(f"\n八度: {'+' if octave_offset >= 0 else ''}{octave_offset}")
+                                    continue
                                 
                                 # 切换乐器
                                 if key in INSTRUMENTS:
@@ -788,8 +870,9 @@ def main():
                                             # 间隔较长，认为是新的按键，停止并重新开始
                                             stop_note(key)
                                     
-                                    # 开始播放新音符
-                                    frequency = KEY_MAP[key]
+                                    # 开始播放新音符（八度 + 变调 + Shift 临时升八度）
+                                    effective_octave = octave_offset + (1 if shift_held else 0)
+                                    frequency = KEY_MAP[key] * (2 ** (effective_octave + transpose_semitones / 12.0))
                                     start_note(key, frequency, current_instrument_key)
                                     pressed_keys[key] = current_time
                             

@@ -36,13 +36,13 @@ T1_NOTE_DURATION = 0.6
 T2_NOTE_INTERVAL = 0.2
 
 # t3: 同一批重复播放两次之间的间隔时间（秒）
-T3_REPEAT_INTERVAL = 2
+T3_REPEAT_INTERVAL = 3.2
 
 # t4: 不同批之间的间隔时间（秒）
-T4_BATCH_INTERVAL = 2
+T4_BATCH_INTERVAL = 3.2
 
 # n1: 一批音符的数量
-N1_NOTES_PER_BATCH = 6
+N1_NOTES_PER_BATCH = 8
 
 # n2: 一批重复播放的次数
 N2_REPEAT_COUNT = 100
